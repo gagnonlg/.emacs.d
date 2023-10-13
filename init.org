@@ -1,0 +1,528 @@
+* Packages
+#+BEGIN_SRC emacs-lisp :tangle yes
+(require 'package)			;
+(add-to-list 'package-archives
+	     '("melpa" . "https://melpa.org/packages/"))
+
+(use-package cmake-mode)
+(use-package csv-mode)
+(use-package lua-mode)
+(use-package markdown-mode)
+(use-package pkgbuild-mode
+  :config
+  (setq pkgbuild-update-sums-on-save nil))
+(use-package vlf)
+(use-package yaml-mode)
+
+(use-package ivy
+  :config
+  (ivy-mode t)
+  (global-set-key (kbd "C-x b") 'ivy-switch-buffer)
+  (setq ivy-use-virtual-buffers t)
+  (setq ivy-count-format "(%d/%d) "))
+
+(use-package ivy-hydra)
+
+(use-package swiper
+  :config
+
+  ;; https://emacs.stackexchange.com/questions/55775/how-can-i-resume-swiper-isearch-with-the-next-line-selected
+  (defun my-swiper-isearch-again ()
+    "Start swiper-isearch with the last thing searched for."
+    (interactive)
+    (swiper-isearch (car swiper-history)))
+
+  (global-set-key (kbd "C-s") 'swiper-isearch)
+  (global-set-key (kbd "C-M-s") 'my-swiper-isearch-again))
+
+
+;; (use-package pdf-tools
+;;   :config
+;;   (pdf-tools-install t t)
+;;   (add-hook 'pdf-view-mode-hook (lambda () (auto-revert-mode))))
+
+
+
+
+#+END_SRC
+* Defuns
+#+BEGIN_SRC emacs-lisp :tangle yes
+;; Frequent ssh connections
+(defun cori ()
+  (interactive "")
+  (find-file "/ssh:cori:"))
+(defun perlmutter ()
+  (interactive "")
+  (find-file "/ssh:perlmutter:"))
+(defun hermes ()
+  (interactive "")
+  (find-file "/ssh:hermes:"))
+(defun lps ()
+  (interactive "")
+  (find-file "/ssh:lps:"))
+(defun lxplus ()
+  (interactive "")
+  (find-file "/ssh:lxplus:"))
+(defun lxplus6 ()
+  (interactive "")
+  (find-file "/ssh:lxplus6:"))
+(defun beluga ()
+  (interactive "")
+  (find-file "/ssh:beluga:"))
+
+(defun find-init.org ()
+  (interactive "")
+  (find-file "~/.emacs.d/init.org"))
+
+;; https://www.emacswiki.org/emacs/UnfillParagraph
+;; Stefan Monnier <foo at acm.org>. It is the opposite of fill-paragraph
+(defun unfill-paragraph (&optional region)
+  "Takes a multi-line paragraph and makes it into a single line of text."
+  (interactive (progn (barf-if-buffer-read-only) '(t)))
+  (let ((fill-column (point-max))
+	;; This would override `fill-column' if it's an integer.
+	(emacs-lisp-docstring-fill-column t))
+    (fill-paragraph nil region)))
+
+(defun C-u_M-x_shell ()
+  "Command for prefixed invokation of `shell'"
+  (interactive "")
+  (let ((ido-mode-p ido-mode))
+    (if ido-mode-p
+	(ido-mode -1))
+    (let ((current-prefix-arg '(4)))
+      (call-interactively #'shell))
+    (if ido-mode-p
+	(ido-mode t))))
+
+(defun set-C-c (key cmd)
+  (global-set-key (kbd (concat "C-c " key)
+		       cmd)))
+
+(defun split-select ()
+  (interactive "")
+  (select-window (split-window-right)))
+
+(defun dired-path-at-point ()
+  "Return the path at point or the directory path if point not on a path"
+  (let ((moved (dired-move-to-filename)))
+    (expand-file-name
+     (if moved
+	 (buffer-substring-no-properties moved (line-end-position))
+       default-directory))))
+
+(defun copy-path ()
+  "Copy full path name
+If in dired-mode, attempt to copy path of file at point"
+  (interactive)
+  (let ((path (if (equal major-mode 'dired-mode)
+		 (dired-path-at-point)
+	       (buffer-file-name))))
+    (if path (message "%s" (kill-new path))
+      (error "No path at point"))))
+
+;; The following 2 defuns are from
+;; https://www.emacswiki.org/emacs/DuplicateLines
+
+(defun uniquify-region-lines (beg end)
+  "Remove duplicate adjacent lines in region."
+  (interactive "*r")
+  (save-excursion
+    (goto-char beg)
+    (while (re-search-forward "^\\(.*\n\\)\\1+" end t)
+      (replace-match "\\1"))))
+
+(defun uniquify-buffer-lines ()
+  "Remove duplicate adjacent lines in the current buffer."
+  (interactive)
+  (uniquify-region-lines (point-min) (point-max)))
+
+#+END_SRC
+* Key bindings
+#+BEGIN_SRC emacs-lisp :tangle yes
+(defun C-c-commands (cmd-alist)
+  (dolist (pair cmd-alist)
+    (global-set-key (kbd (concat "C-c " (car pair)))
+		    (cdr pair))))
+
+;; WARNING: now set other C-c command in use-package forms
+(C-c-commands
+ '(("3" . split-select)
+   ("a" . org-agenda)
+   ("b" . menu-bar-mode)
+   ("c" . org-capture)
+   ("d" . dired-other-window)
+   ("i" . find-init.org)
+   ("l" . org-store-link)
+   ("m" . man)
+   ("p" . copy-path)
+   ("q" . unfill-paragraph)
+   ("r" . replace-string)
+   ("s" . C-u_M-x_shell)
+   ("t" . load-theme)
+   ("u" . rename-uniquely)))
+
+(global-set-key (kbd "C-x C-b") 'ibuffer)
+
+#+END_SRC
+* Style
+#+BEGIN_SRC emacs-lisp :tangle yes
+(use-package solarized-theme
+  :config
+  (setq solarized-use-variable-pitch nil)
+  (setq solarized-scale-org-headlines nil)
+  (load-theme 'solarized-light t)
+  ;; (add-to-list 'default-frame-alist
+  ;; 	       '(font . "inconsolata-20"))
+  ;; (set-frame-font "Inconsolata 20" nil t)
+  ;; (set-frame-font (font-spec :size 27 :name "Inconsolata" :weight 'medium) nil t)
+  (add-hook 'focus-in-hook
+  	    (lambda ()
+	      (set-frame-font (font-spec :size 27 :name "Inconsolata" :weight 'medium) nil t)
+	      (set-fontset-font "fontset-default" 'unicode (font-spec :size 13 :name "Source Code Pro")))))
+(tool-bar-mode -1)
+(menu-bar-mode -1)
+(scroll-bar-mode -1)
+(setq inhibit-startup-screen t)
+(setq resize-mini-windows t)
+#+END_SRC
+* Programming
+** Common
+#+BEGIN_SRC emacs-lisp :tangle yes
+;; only run the checks when file is loaded or saved
+(setq flymake-no-changes-timeout nil)
+(setq flymake-start-on-flymake-mode t)
+
+;; For now, disable shellcheck on PKGBUILD files (too many false
+;; positives)
+(defun flymake-ignore-PKGBUILD ()
+  (when (string= "PKGBUILD" (file-name-base (buffer-file-name)))
+    (flymake-mode -1)))
+(add-hook 'find-file-hook 'flymake-ignore-PKGBUILD)
+
+
+(setq common-programming-hook
+      (lambda ()
+	;; TODO: enable trailing whitespace but with less intrusive face
+	;; (setq show-trailing-whitespace t)
+	(setq display-line-numbers t)
+	(column-number-mode)
+	(show-paren-mode)))
+
+#+END_SRC
+** Tree sitter c++
+#+BEGIN_SRC emacs-lisp :tangle yes
+(setq treesit-language-source-alist
+      '((cpp "https://github.com/tree-sitter/tree-sitter-cpp")
+	(c "https://github.com/tree-sitter/tree-sitter-c")))
+(setq major-mode-remap-alist
+      '((c++-mode . c++-ts-mode)))
+
+(add-hook 'c++-ts-mode-hook common-programming-hook)
+
+
+;; FIXME
+(defun c++-ts-mode-config ()
+  (push '((parent-is "namespace_definition") parent-bol 0)
+        treesit-simple-indent-rules)
+  (setq c-ts-mode-indent-style 'linux))
+
+
+(add-hook 'c++-ts-mode-hook #'c++-ts-mode-config)
+
+
+
+#+END_SRC
+** Python
+#+BEGIN_SRC emacs-lisp :tangle yes
+(add-hook 'python-mode-hook common-programming-hook)
+(setq python-shell-interpreter "python")
+(setq python-check-command "lintpy")
+
+(setq python-flymake-command '("pyflakes-python2")) ;; TODO configure this
+(setq my-python-mode-hook
+  (lambda () (flymake-mode)))
+(add-hook 'python-mode-hook my-python-mode-hook)
+#+END_SRC
+** C++
+#+BEGIN_SRC emacs-lisp :tangle yes
+(add-hook 'c-mode-hook common-programming-hook)
+(add-hook 'c++-mode-hook common-programming-hook)
+(setq c-default-style '((c++-mode . "stroustrup")
+			(other . "linux")))
+(setq c-basic-offset 4)
+
+;; https://twiki.cern.ch/twiki/bin/view/AtlasComputing/UsingEmacs
+(setq cc-other-file-alist
+  '(("\\.cxx$" (".h"))
+    ("\\.cpp$" (".h"))
+    ("\\.h$" (".cxx" ".cpp"))))
+(setq cc-search-directories '("." "../*" "../*/*"))
+
+(setq my-cc-mode-hook
+      (lambda ()
+	(local-set-key (kbd "C-c C-v") 'ff-find-other-file)
+	(c-set-offset 'innamespace 0)))
+(add-hook 'c++-mode-hook my-cc-mode-hook)
+#+END_SRC
+** elisp
+#+BEGIN_SRC emacs-lisp :tangle yes
+(add-hook 'emacs-lisp-mode-hook common-programming-hook)
+#+END_SRC
+** sh
+#+BEGIN_SRC emacs-lisp :tangle yes
+(add-hook 'sh-mode-hook common-programming-hook)
+(use-package flymake-shellcheck
+  :config
+  (add-hook 'sh-mode-hook 'flymake-shellcheck-load)
+  (add-hook 'sh-mode-hook 'flymake-mode))
+#+END_SRC
+* Org
+#+BEGIN_SRC emacs-lisp :tangle yes
+(setq org-agenda-files '("~/org/todo.org"))
+(setq org-default-notes-file "~/org/notes.org")
+(setq org-agenda-ndays 7)
+(setq org-deadline-warning-days 14)
+(setq org-agenda-show-all-dates t)
+(setq org-agenda-skip-deadline-if-done t)
+(setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-skip-scheduled-if-done nil)
+(setq org-agenda-start-on-weekday 1) ;; start on Monday
+(setq org-id-link-to-org-use-id 'create-if-interactive)
+(setq org-capture-templates
+      '(("t" "Todo" entry (file+headline "~/org/todo.org" "INBOX")
+	 "* TODO %?\n")
+	("n" "Note" entry (file+datetree "~/org/notes.org")
+	 "* %?\n")
+	("e" "Emacs" entry (file+headline "~/org/emacs.org" "todo")
+	 "* TODO %?\n")))
+
+
+(setq org-todo-keywords '((sequence "TODO(t)"           ; ready to be started
+				    "STARTED(s)"        ; in progress
+				    "WAITING(w)"        ; waiting for completion
+				    "BLOCKED(b)"        ; blocked by other task / external dependancy
+				    "|"
+				    "DONE(d!)"           ; finished
+				    "DELEGATED(l)"      ; deletaged
+				    "SOMEDAY(o)"        ; possibly in future
+				    "CANCELLED(c!)")))   ; not gonna do it
+
+(setq org-todo-keyword-faces
+      '(("STARTED" . (:foreground "blue" :weight bold))
+	("BLOCKED" . (:foreground "white" :background "red"))))
+
+(add-hook 'org-agenda-mode-hook
+          (lambda () (hl-line-mode)))
+
+(require 'ox)
+(setq org-export-copy-to-kill-ring nil)
+
+(require 'ob-python)
+(setq org-src-preserve-indentation t)
+(setq org-src-fontify-natively t)
+
+(setq org-indirect-buffer-display 'current-window)
+
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((emacs-lisp . t)
+   (shell . t)))
+
+(use-package org-download)
+
+(use-package org-roam
+  :after org
+  :demand t
+  :config
+  (setq org-roam-directory "~/org/roam")
+  (org-roam-db-autosync-mode)
+  :bind
+  ("C-c n n" . org-roam-capture))
+
+
+(use-package deft
+  :after org
+  :bind
+  ("C-c n d" . deft)
+  :custom
+  (deft-recursive t)
+  (deft-strip-summary-regexp
+  (concat "\\("
+	  "^:.+:.*\n" ; any line with a :SOMETHING:
+	  "\\|^#\\+.*\n" ; anyline starting with a #+
+	  "\\|^\\*.+.*\n" ; anyline where an asterisk starts the line
+	  "\\)"))
+  (deft-use-filter-string-for-filename t)
+  (deft-default-extension "org")
+  (deft-directory org-roam-directory)
+  :config
+  (advice-add 'deft-parse-title :override 
+    (lambda (file contents)
+      (if deft-use-filename-as-title
+	  (deft-base-filename file)
+	(let* ((case-fold-search 't)
+	       (begin (string-match "title: " contents))
+	       (end-of-begin (match-end 0))
+	       (end (string-match "\n" contents begin)))
+	  (if begin 
+	      (substring contents end-of-begin end)
+	    (format "%s" file))))))
+  )
+
+
+#+END_SRC   
+* Bridge
+#+BEGIN_SRC emacs-lisp :tangle yes
+(defun notify-me (process event)
+  (message "foo")
+  (start-process-shell-command "notify" "*notify*"
+    (format "notify-send -u normal \"%s\" \"%s\"" process event)))
+
+(defmacro make-bridge (name src dest)
+  `(defun ,name ()
+     (interactive "")
+     (with-current-buffer (get-buffer "*scratch*")
+       (set-process-sentinel
+	(start-process-shell-command "rsync" "*rsync*" ,(concat "rsync -a " src " " dest))
+	'notify-me))))
+
+;; Example of how to use such bridges:
+
+;; (make-bridge bridge-HistFitter
+;; 	     "/home/glg/code/git/HistFitter/"
+;; 	     "lps:work/code/HistFitter")
+;; (global-set-key (kbd "<f9>") 'bridge-HistFitter)
+#+END_SRC
+* LaTeX
+#+BEGIN_SRC emacs-lisp :tangle yes
+(setq TeX-auto-save t)
+(setq TeX-parse-self t)
+(setq-default TeX-master nil)
+(setq TeX-electric-math (cons "$" "$"))
+(setq LaTeX-electric-left-right-brace t)
+(setq TeX-electric-sub-and-superscript t)
+(setq blink-matching-paren nil)
+(customize-set-variable 'LaTeX-math-abbrev-prefix (kbd "é"))
+(add-hook 'LaTeX-mode-hook 'LaTeX-math-mode)
+(add-hook 'LaTeX-mode-hook 'flyspell-mode)
+(defun tex-line-break ()
+  (interactive "")
+  (insert "\\\\"))
+(add-hook 'LaTeX-mode-hook
+	    (lambda ()
+	      (local-set-key (kbd "C-c C-<") 'TeX-error-overview)
+	      (local-set-key (kbd "C-<return>") 'tex-line-break)))
+(require 'reftex)
+(add-hook 'LaTeX-mode-hook 'turn-on-reftex)
+(setq reftex-plug-into-AUCTeX t)
+
+(use-package cdlatex)
+#+END_SRC
+* Magit
+#+BEGIN_SRC emacs-lisp :tangle yes
+(use-package magit
+  :config
+  (global-set-key (kbd "C-c g") 'magit-status)
+
+  (defun my-magit-auto-revert-mode-advice (orig-fun &rest args)
+    (unless (and buffer-file-name (file-remote-p buffer-file-name))
+      (apply orig-fun args)))
+  (advice-add 'magit-turn-on-auto-revert-mode-if-desired
+	      :around
+	      #'my-magit-auto-revert-mode-advice))
+
+(use-package orgit
+  :after magit
+  :config
+  (defun orgit-log-store ()
+    "Store a link to a Magit-Log mode buffer.
+When the region selects one or more commits, then do nothing.
+In that case `orgit-rev-store' stores one or more links instead."
+    (when (and (eq major-mode 'magit-log-mode)
+	       (not (magit-region-sections 'commit)))
+      (let ((repo (abbreviate-file-name default-directory)))
+	(if orgit-log-save-arguments
+	    (let ((args (if (car (last magit-refresh-args))
+			    magit-refresh-args
+			  (butlast magit-refresh-args))))
+	      (org-store-link-props
+	       :type        "orgit-log"
+	       :link        (format "orgit-log:%s::%S" repo args)
+	       :description (format "%s %S" repo (cons 'magit-log args))))
+	  (let ((commit-id (magit-commit-at-point)))
+	    (org-store-link-props
+	     :type        "orgit-log"
+	     :link        (format "orgit-rev:%s::%s" repo commit-id)
+	     :description (format "%s::%s \"%s\""
+				  repo
+				  commit-id
+				  (magit-rev-format "%s" commit-id))))))))
+  (global-set-key (kbd "C-c l") 'org-store-link))
+
+;; (use-package forge
+;;      :after magit
+;;      :config
+;;      (add-to-list 'forge-alist '("gitlab.cern.ch" "gitlab.cern.ch/api/v4" "gitlab.cern.ch" forge-gitlab-repository)))
+#+END_SRC
+
+* Divers
+#+BEGIN_SRC emacs-lisp :tangle yes
+(setq async-shell-command-display-buffer nil)
+(setq comint-input-ignoredups t)
+(setq comint-password-prompt-regexp
+      (concat comint-password-prompt-regexp "\\|pass phrase\\|the password\\+OTP\\|Password"))
+(setq compilation-scroll-output t)
+(setq confirm-kill-processes nil)
+(setq custom-file "~/.emacs.d/custom.el")
+(setq delete-old-versions t)
+(setq dired-listing-switches "-lh")
+(setq doc-view-resolution 300) ; default is 100
+(setq explicit-shell-file-name "/bin/bash") ;; For TRAMP
+(setq highlight-nonselected-windows t)
+(setq kept-new-versions 3)
+(setq kept-old-versions 0)
+(setq make-backup-files t)
+(setq mouse-drag-and-drop-region 'shift)
+(setq ring-bell-function
+      (lambda ()
+	(invert-face 'mode-line)
+	(run-with-timer 0.1 nil 'invert-face 'mode-line)))
+(setq search-default-mode t) ;; sets regexp search
+(setq version-control t)
+;(setq vc-handled-backends '())
+
+(add-hook 'compilation-minor-mode-hook
+	  (lambda () (hl-line-mode)))
+(add-to-list 'auto-mode-alist '("\\.pbs\\'" . sh-mode))
+(add-to-list 'auto-mode-alist '("\\.ipp\\'" . c++-mode))
+(add-to-list 'backup-directory-alist '("." . "/home/glg/.emacs.d/backup"))
+(delete-selection-mode)
+(display-battery-mode t)
+(display-time-mode t)
+(remove-hook 'find-file-hook 'vc-find-file-hook)
+(load custom-file)
+(put 'set-goal-column 'disabled nil)
+(show-paren-mode t)
+(size-indication-mode)
+;; (add-to-list 'grep-find-ignored-directories ".ccls-cache")
+
+;; https://www.reddit.com/r/emacs/comments/9jp9zt/anyone_know_what_variable_binding_depth_exceeds/
+;;(setq max-specpdl-size 13000)
+
+;; https://debbugs.gnu.org/cgi/bugreport.cgi?bug=57418
+(setq vc-follow-symlinks nil)
+(defun my-vc-off-if-remote ()
+  (if (file-remote-p (buffer-file-name))
+      (setq-local vc-handled-backends nil)))
+(add-hook 'find-file-hook 'my-vc-off-if-remote)
+      
+
+;;(remove-hook 'find-file-hook 'my-vc-off-if-remote)
+
+;; Speedup TRAMP over slow connections, this inhibits .#<...> lock files
+(setq remote-file-name-inhibit-locks t)
+
+
+#+END_SRC
+
